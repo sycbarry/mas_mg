@@ -88,13 +88,11 @@ func main() {
 
     IMAGE_NAME := "quay.io/ibmmas/cli"
 
-    // Create a new Docker client
     cli, err := client.NewClientWithOpts(client.FromEnv)
     if err != nil {
         log.Fatal(err)
     }
 
-    // Pull the image if not already present
     reader, err := cli.ImagePull(context.Background(), IMAGE_NAME, types.ImagePullOptions{})
     if err != nil {
         log.Fatal(err)
@@ -102,9 +100,7 @@ func main() {
     defer reader.Close()
     ioCopy(os.Stdout, reader)
 
-    // Define container configuration
     config := &container.Config{
-        // Image: "quay.io/ibmmas/cli",
         Image: IMAGE_NAME,
         StopTimeout: &[]int{10}[0],
         Tty: true, 
@@ -113,15 +109,12 @@ func main() {
         AttachStderr: true,
     }
 
-    // Get the current working directory
     absPath, err := filepath.Abs(".")
     if err != nil {
         log.Fatal(err)
     }
 
-    // Define host configuration
     hostConfig := &container.HostConfig{
-        // Mount the home directory
         Mounts: []mount.Mount{
             {
                 Type:   mount.TypeBind,
@@ -131,23 +124,19 @@ func main() {
         },
     }
 
-    // Create the container
     resp, err := cli.ContainerCreate(context.Background(), config, hostConfig, nil, nil, "")
     if err != nil {
         log.Fatal(err)
     }
 
-    // Start the container
     cli.ContainerStart(context.Background(), resp.ID, types.ContainerStartOptions{});
 
-    // cmd := "oc login --token=sha256~U4jzm4e0_23X_T3VrVUUdDjwb0K-PDbT42quoIDrM-s --server=https://api.sms-oc4-youbim.sms-inc.net:6443 --insecure-skip-tls-verify"
     cmd := ocLoginCommand +  " " +  "--insecure-skip-tls-verify"
     runCommand(cli, resp.ID, cmd);
 
     mustGather := "mas must-gather"
     runCommand(cli, resp.ID, mustGather);
 
-    // Copy files from the container to the host
     rc, _, err := cli.CopyFromContainer(context.Background(), resp.ID, "/tmp/must-gather")
     if err != nil {
         log.Fatal(err)
@@ -156,14 +145,13 @@ func main() {
     buildZip(rc)
     fmt.Println("Files copied successfully")
 
-    // Stop and remove the container
     err = cli.ContainerStop(context.Background(), resp.ID, container.StopOptions{})
     if err != nil {
         log.Fatal(err)
     }
     fmt.Println("Container stopped")
 
-    err = cli.ContainerRemove(context.Background(), resp.ID, types.ContainerRemoveOptions{Force: true}) // Add Force: true to remove running container
+    err = cli.ContainerRemove(context.Background(), resp.ID, types.ContainerRemoveOptions{Force: true}) 
     if err != nil {
         log.Fatal(err)
     }
